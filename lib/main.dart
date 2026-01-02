@@ -1,7 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'animated_map_view.dart';
+import 'core/di/injection_container.dart' as di;
+import 'core/di/injection_container.dart';
+import 'features/walking_challenge/presentation/bloc/route_bloc.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await di.init();
+
+  // StepCounterService.setUserStepCount(1500); // Example: 1500 steps
+
   runApp(const MyApp());
 }
 
@@ -39,7 +49,10 @@ class _MyHomePageState extends State<MyHomePage> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => const AnimatedMapView(),
+                builder: (context) => BlocProvider(
+                  create: (context) => sl<RouteBloc>(),
+                  child: const AnimatedMapView(),
+                ),
               ),
             );
           },
