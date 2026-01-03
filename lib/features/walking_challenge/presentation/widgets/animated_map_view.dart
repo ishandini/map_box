@@ -28,6 +28,8 @@ class _AnimatedMapViewState extends State<AnimatedMapView>
   AnimationController? _pathAnimationController;
   AnimationController? _progressAnimationController;
   List<List<double>>? _previousProgressCoords;
+  Waypoint? _lastShownLandmark;
+  bool _isDismissingLandmark = false;
 
   static const double targetLongitude = 100.57545;
   static const double targetLatitude = 13.70374;
@@ -59,6 +61,79 @@ class _AnimatedMapViewState extends State<AnimatedMapView>
   void _onMapCreated(MapboxMap mapboxMap) {
     _mapboxMap = mapboxMap;
     _layerManager = MapLayerManager(mapboxMap);
+  }
+
+  Future<void> _handleMapTap(Offset tapPosition) async {
+    if (_mapboxMap == null || !mounted) return;
+
+    final state = context.read<RouteBloc>().state;
+    if (state is! RouteLoaded) return;
+
+    try {
+      final screenCoord = ScreenCoordinate(
+        x: tapPosition.dx,
+        y: tapPosition.dy,
+      );
+
+      final features = await _mapboxMap!.queryRenderedFeatures(
+        RenderedQueryGeometry.fromScreenCoordinate(screenCoord),
+        RenderedQueryOptions(layerIds: [MapLayerManager.landmarksLayerId]),
+      );
+
+      if (features.isNotEmpty) {
+        final feature = features.first;
+        if (feature != null) {
+          final queriedFeature = feature.queriedFeature;
+
+          if (queriedFeature != null) {
+            final featureData = queriedFeature.feature;
+            final geometry = featureData['geometry'];
+
+            if (geometry is Map && geometry['coordinates'] is List) {
+              final coords = geometry['coordinates'] as List;
+              if (coords.length >= 2) {
+                final tappedLon = (coords[0] as num).toDouble();
+                final tappedLat = (coords[1] as num).toDouble();
+
+                final landmarkIndex = _findLandmarkIndex(
+                  state.landmarks,
+                  tappedLat,
+                  tappedLon,
+                );
+
+                if (landmarkIndex != null && mounted) {
+                  context.read<RouteBloc>().add(
+                    LandmarkTappedEvent(landmarkIndex),
+                  );
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error querying landmark tap: $e');
+    }
+  }
+
+  int? _findLandmarkIndex(
+    List<Waypoint> landmarks,
+    double latitude,
+    double longitude,
+  ) {
+    const double tolerance = 0.0001;
+
+    for (int i = 0; i < landmarks.length; i++) {
+      final landmark = landmarks[i];
+      final latDiff = (landmark.latitude - latitude).abs();
+      final lonDiff = (landmark.longitude - longitude).abs();
+
+      if (latDiff < tolerance && lonDiff < tolerance) {
+        return i;
+      }
+    }
+
+    return null;
   }
 
   void _onStyleLoaded(StyleLoadedEventData data) {
@@ -194,10 +269,7 @@ class _AnimatedMapViewState extends State<AnimatedMapView>
         _layerManager!.updateProgressPathWithCoordinates(animatedCoords);
 
         final currentEndPoint = animatedCoords.last;
-        _layerManager!.updateUserMarker(
-          currentEndPoint[1],
-          currentEndPoint[0],
-        );
+        _layerManager!.updateUserMarker(currentEndPoint[1], currentEndPoint[0]);
       } else {
         _layerManager!.updateProgressPathWithCoordinates(targetCoordinates);
         _layerManager!.updateUserMarker(userLatitude, userLongitude);
@@ -342,15 +414,21 @@ class _AnimatedMapViewState extends State<AnimatedMapView>
       ),
       body: Stack(
         children: [
-          MapWidget(
-            cameraOptions: CameraOptions(
-              center: Point(coordinates: Position(0, 20)),
-              zoom: spaceZoom,
-              bearing: 0,
-              pitch: 0,
+          Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerUp: (event) {
+              _handleMapTap(event.localPosition);
+            },
+            child: MapWidget(
+              cameraOptions: CameraOptions(
+                center: Point(coordinates: Position(0, 20)),
+                zoom: spaceZoom,
+                bearing: 0,
+                pitch: 0,
+              ),
+              onMapCreated: _onMapCreated,
+              onStyleLoadedListener: _onStyleLoaded,
             ),
-            onMapCreated: _onMapCreated,
-            onStyleLoadedListener: _onStyleLoaded,
           ),
           BlocConsumer<RouteBloc, RouteState>(
             listener: (context, state) async {
@@ -372,6 +450,31 @@ class _AnimatedMapViewState extends State<AnimatedMapView>
                   state.userSteps,
                 );
                 if (!mounted) return;
+
+                if (state.selectedLandmark != null &&
+                    state.selectedLandmark != _lastShownLandmark &&
+                    mounted) {
+                  _lastShownLandmark = state.selectedLandmark;
+                  LandmarkInfoSheet.show(
+                    context,
+                    state.selectedLandmark!,
+                    state.userSteps,
+                  ).then((_) {
+                    if (mounted) {
+                      _lastShownLandmark = null;
+                      _isDismissingLandmark = true;
+                      context.read<RouteBloc>().add(
+                        const DismissLandmarkInfoEvent(),
+                      );
+                    }
+                  });
+                  return;
+                }
+
+                if (_isDismissingLandmark) {
+                  _isDismissingLandmark = false;
+                  return;
+                }
 
                 if (state.userSteps > 0 && _layerManager != null) {
                   if (!_hasShownFirstProgress && _hasShownFullRoute) {
@@ -421,19 +524,6 @@ class _AnimatedMapViewState extends State<AnimatedMapView>
 
                     await Future.wait(futures);
                     if (!mounted) return;
-                  }
-                }
-
-                if (state.selectedLandmark != null && mounted) {
-                  LandmarkInfoSheet.show(
-                    context,
-                    state.selectedLandmark!,
-                    state.userSteps,
-                  );
-                  if (mounted) {
-                    context.read<RouteBloc>().add(
-                      const DismissLandmarkInfoEvent(),
-                    );
                   }
                 }
               }

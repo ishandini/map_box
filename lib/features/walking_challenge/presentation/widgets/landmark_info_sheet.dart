@@ -253,8 +253,8 @@ class LandmarkInfoSheet extends StatelessWidget {
   }
 
   /// Show landmark info sheet
-  static void show(BuildContext context, Waypoint landmark, int userSteps) {
-    showModalBottomSheet(
+  static Future<void> show(BuildContext context, Waypoint landmark, int userSteps) {
+    return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
