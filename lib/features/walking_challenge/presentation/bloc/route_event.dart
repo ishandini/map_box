@@ -1,6 +1,5 @@
 import 'package:equatable/equatable.dart';
 
-/// Base class for all route events
 abstract class RouteEvent extends Equatable {
   const RouteEvent();
 
@@ -8,12 +7,10 @@ abstract class RouteEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-/// Event to load route data from data source
 class LoadRouteEvent extends RouteEvent {
   const LoadRouteEvent();
 }
 
-/// Event to update user's step count and recalculate progress
 class UpdateUserStepsEvent extends RouteEvent {
   final int stepCount;
 
@@ -23,7 +20,6 @@ class UpdateUserStepsEvent extends RouteEvent {
   List<Object?> get props => [stepCount];
 }
 
-/// Event to handle landmark tap
 class LandmarkTappedEvent extends RouteEvent {
   final int landmarkIndex;
 
@@ -33,7 +29,6 @@ class LandmarkTappedEvent extends RouteEvent {
   List<Object?> get props => [landmarkIndex];
 }
 
-/// Event to dismiss landmark info
 class DismissLandmarkInfoEvent extends RouteEvent {
   const DismissLandmarkInfoEvent();
 }

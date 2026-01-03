@@ -9,7 +9,6 @@ import '../../features/walking_challenge/presentation/bloc/route_bloc.dart';
 
 final sl = GetIt.instance;
 
-/// Initialize all dependencies
 Future<void> init() async {
   // BLoC
   sl.registerFactory(

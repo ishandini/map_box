@@ -1,28 +1,42 @@
 import '../../domain/entities/waypoint.dart';
 
-/// Data model for Waypoint with JSON serialization
-/// Extends domain entity and adds fromJson/toJson capabilities
-class WaypointModel extends Waypoint {
+class WaypointModel {
+  final double latitude;
+  final double longitude;
+  final int distance;
+  final int cumulativeSteps;
+  final int zoomLevel;
+  final String action;
+  final String link;
+  final String flagActive;
+  final String flagDeactive;
+  final int stepsToNext;
+  final String nextCity;
+  final String city;
+  final String cityMessage;
+  final String cityImage;
+  final String welcomeMessage;
+  final String currentCity;
+
   const WaypointModel({
-    required super.latitude,
-    required super.longitude,
-    required super.distance,
-    required super.cumulativeSteps,
-    required super.zoomLevel,
-    required super.action,
-    required super.link,
-    required super.flagActive,
-    required super.flagDeactive,
-    required super.stepsToNext,
-    required super.nextCity,
-    required super.city,
-    required super.cityMessage,
-    required super.cityImage,
-    required super.welcomeMessage,
-    required super.currentCity,
+    required this.latitude,
+    required this.longitude,
+    required this.distance,
+    required this.cumulativeSteps,
+    required this.zoomLevel,
+    required this.action,
+    required this.link,
+    required this.flagActive,
+    required this.flagDeactive,
+    required this.stepsToNext,
+    required this.nextCity,
+    required this.city,
+    required this.cityMessage,
+    required this.cityImage,
+    required this.welcomeMessage,
+    required this.currentCity,
   });
 
-  /// Create WaypointModel from JSON
   factory WaypointModel.fromJson(Map<String, dynamic> json) {
     return WaypointModel(
       latitude: _parseDouble(json['lat']),
@@ -44,7 +58,6 @@ class WaypointModel extends Waypoint {
     );
   }
 
-  /// Convert WaypointModel to JSON
   Map<String, dynamic> toJson() {
     return {
       'lat': latitude,
@@ -66,7 +79,27 @@ class WaypointModel extends Waypoint {
     };
   }
 
-  /// Convert domain entity to model
+  Waypoint toEntity() {
+    return Waypoint(
+      latitude: latitude,
+      longitude: longitude,
+      distance: distance,
+      cumulativeSteps: cumulativeSteps,
+      zoomLevel: zoomLevel,
+      action: action,
+      link: link,
+      flagActive: flagActive,
+      flagDeactive: flagDeactive,
+      stepsToNext: stepsToNext,
+      nextCity: nextCity,
+      city: city,
+      cityMessage: cityMessage,
+      cityImage: cityImage,
+      welcomeMessage: welcomeMessage,
+      currentCity: currentCity,
+    );
+  }
+
   factory WaypointModel.fromEntity(Waypoint waypoint) {
     return WaypointModel(
       latitude: waypoint.latitude,
@@ -88,7 +121,6 @@ class WaypointModel extends Waypoint {
     );
   }
 
-  // Helper methods for safe parsing
   static double _parseDouble(dynamic value) {
     if (value == null) return 0.0;
     if (value is double) return value;
