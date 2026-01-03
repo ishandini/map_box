@@ -23,10 +23,13 @@ class _AnimatedMapViewState extends State<AnimatedMapView>
   MapboxMap? _mapboxMap;
   MapLayerManager? _layerManager;
   bool _animationStarted = false;
-  bool _isFirstDraw = true;
   bool _hasShownFullRoute = false; // Track if we've shown the full route view
+  bool _hasShownFirstProgress = false; // Track if we've shown the first progress animation
   AnimationController? _pathAnimationController;
   AnimationController? _progressAnimationController;
+
+  // Track previous progress coordinates for smooth animation
+  List<List<double>>? _previousProgressCoords;
 
   static const double targetLongitude = 100.57545;
   static const double targetLatitude = 13.70374;
@@ -114,21 +117,22 @@ class _AnimatedMapViewState extends State<AnimatedMapView>
     }
   }
 
-  /// Draw full route path with optional animation
-  Future<void> _drawFullRoutePath(
-    List<Waypoint> waypoints,
-    bool animated,
-  ) async {
+  /// Draw full route path (without animation)
+  Future<void> _drawFullRoutePath(List<Waypoint> waypoints) async {
     if (_layerManager == null || waypoints.isEmpty) return;
 
-    if (animated && _isFirstDraw) {
-      // Animated drawing for first time
-      await _animatePathDrawing(waypoints);
-      _isFirstDraw = false;
-    } else {
-      // Instant drawing
-      await _layerManager!.addFullRoutePath(waypoints);
-    }
+    print('🔵 Starting _drawFullRoutePath with ${waypoints.length} waypoints');
+
+    // Convert waypoints to coordinates - NO simplification
+    // This ensures perfect alignment with the green progress line
+    final allCoordinates = waypoints.map((w) {
+      final coords = w.toCoordinates();
+      return [coords[0].toDouble(), coords[1].toDouble()];
+    }).toList();
+
+    print('🔵 Drawing route path with all ${allCoordinates.length} coordinates (no simplification)');
+    await _layerManager!.addFullRoutePathWithCoordinates(allCoordinates);
+    print('✅ Route path drawn');
   }
 
   /// Animate path drawing from start to end with smooth easing
@@ -167,24 +171,104 @@ class _AnimatedMapViewState extends State<AnimatedMapView>
     curvedAnimation.dispose();
   }
 
-  /// Update progress path (simple, no animation)
+  /// Update progress path from reached waypoints + user position
+  /// Uses all waypoints with no simplification to ensure perfect alignment with orange line
+  /// Animates smoothly from previous progress to new progress
   Future<void> _animateProgressPath(
     List<Waypoint> allWaypoints,
     List<Waypoint> newReachedWaypoints,
+    double userLatitude,
+    double userLongitude,
   ) async {
-    if (_layerManager == null) return;
-
-    // Update the progress path
-    await _layerManager!.updateProgressPath(newReachedWaypoints);
-
-    // Update marker at the end of reached waypoints
-    if (newReachedWaypoints.isNotEmpty) {
-      final lastWaypoint = newReachedWaypoints.last;
-      await _layerManager!.updateUserMarker(
-        lastWaypoint.latitude,
-        lastWaypoint.longitude,
-      );
+    print('  🔍 _animateProgressPath: Starting');
+    if (_layerManager == null || newReachedWaypoints.isEmpty) {
+      print('  ⚠️ _animateProgressPath: Early return - missing data');
+      return;
     }
+
+    print('  🔍 Building progress path from ${newReachedWaypoints.length} waypoints + user position');
+
+    // Build target coordinates from reached waypoints - NO simplification
+    // This preserves all curves perfectly
+    final targetCoordinates = <List<double>>[];
+    for (final waypoint in newReachedWaypoints) {
+      final coords = waypoint.toCoordinates();
+      targetCoordinates.add([coords[0].toDouble(), coords[1].toDouble()]);
+    }
+
+    // Add user's exact position as the final point
+    targetCoordinates.add([userLongitude, userLatitude]);
+
+    print('  🔍 Target progress path has ${targetCoordinates.length} coordinates');
+
+    // If this is the first draw, animate from start (2 coords) to target
+    // This ensures user sees the green line grow even on first load
+    if (_previousProgressCoords == null || _previousProgressCoords!.isEmpty) {
+      print('  🔍 First progress draw - animating from start');
+      // Start with just the first 2 coordinates
+      _previousProgressCoords = targetCoordinates.sublist(0, 2.clamp(0, targetCoordinates.length));
+      // Don't return - continue to animation below
+    }
+
+    // Animate from previous coordinates to new coordinates
+    print('  🎬 Animating from ${_previousProgressCoords!.length} to ${targetCoordinates.length} coordinates');
+
+    if (_progressAnimationController == null || !mounted) return;
+
+    // Reset animation controller
+    _progressAnimationController!.reset();
+
+    // Create smooth curved animation
+    final curvedAnimation = CurvedAnimation(
+      parent: _progressAnimationController!,
+      curve: Curves.easeInOutCubic,
+    );
+
+    // Animation listener for smooth progress growth
+    void updateProgress() {
+      if (!mounted || _layerManager == null) return;
+
+      final progress = curvedAnimation.value;
+
+      // If target is longer, interpolate the growth
+      if (targetCoordinates.length >= _previousProgressCoords!.length) {
+        // Calculate how many coordinates to show based on progress
+        final coordsToShow = (_previousProgressCoords!.length +
+          (targetCoordinates.length - _previousProgressCoords!.length) * progress)
+          .round()
+          .clamp(2, targetCoordinates.length);
+
+        final animatedCoords = targetCoordinates.sublist(0, coordsToShow);
+
+        // Update progress path without await for smooth animation
+        _layerManager!.updateProgressPathWithCoordinates(animatedCoords);
+
+        // Update marker to the end of the current animated progress
+        // This makes the marker move along with the green line
+        final currentEndPoint = animatedCoords.last;
+        _layerManager!.updateUserMarker(
+          currentEndPoint[1], // latitude
+          currentEndPoint[0], // longitude
+        );
+      } else {
+        // If shrinking (unlikely but handle it), just show target
+        _layerManager!.updateProgressPathWithCoordinates(targetCoordinates);
+        _layerManager!.updateUserMarker(userLatitude, userLongitude);
+      }
+    }
+
+    curvedAnimation.addListener(updateProgress);
+
+    // Start animation
+    await _progressAnimationController!.forward();
+
+    // Clean up
+    curvedAnimation.removeListener(updateProgress);
+    curvedAnimation.dispose();
+
+    // Store current coordinates as previous for next animation
+    _previousProgressCoords = targetCoordinates;
+    print('  ✅ Progress animation complete (marker moved with animation)');
   }
 
   /// Fit camera to show all route waypoints
@@ -353,54 +437,107 @@ class _AnimatedMapViewState extends State<AnimatedMapView>
           BlocConsumer<RouteBloc, RouteState>(
             listener: (context, state) async {
               if (state is RouteLoaded) {
-                // On first draw: Run camera fit and path drawing in parallel
+                print('🟢 RouteLoaded state received');
+
+                // On first draw: Fit camera first, then animate route drawing
                 if (!_hasShownFullRoute && state.allWaypoints.isNotEmpty) {
-                  // Start both animations simultaneously for smooth experience
-                  await Future.wait([
-                    _fitCameraToRoute(state.allWaypoints),
-                    _drawFullRoutePath(state.allWaypoints, _isFirstDraw),
-                  ]);
+                  print('🔵 First route draw - fitting camera first');
+
+                  // Step 1: Fit camera to show full route (wait for completion)
+                  await _fitCameraToRoute(state.allWaypoints);
+                  if (!mounted) return;
+                  print('✅ Camera fit complete');
+
+                  // Step 2: Animate the route drawing from start to end (4 seconds)
+                  print('🔵 Starting animated route drawing...');
+                  await _animatePathDrawing(state.allWaypoints);
                   _hasShownFullRoute = true;
+                  print('✅ Route drawing animation complete');
                   if (!mounted) return;
                 } else {
-                  // Subsequent updates: Just update the route
-                  await _drawFullRoutePath(state.allWaypoints, _isFirstDraw);
+                  print('🔵 Subsequent update - just drawing path');
+                  // Subsequent updates: Just update the route without animation
+                  await _drawFullRoutePath(state.allWaypoints);
                   if (!mounted) return;
                 }
 
-                // Animate progress path smoothly (yellow line)
-                if (_layerManager != null) {
-                  await _animateProgressPath(
-                    state.allWaypoints,
-                    state.reachedWaypoints,
-                  );
-                  if (!mounted) return;
+                // Update landmark markers first
+                print('🔵 Updating ${state.landmarks.length} landmark markers...');
+                await _layerManager!.updateLandmarkMarkers(
+                  state.landmarks,
+                  state.userSteps,
+                );
+                print('✅ Landmark markers updated');
+                if (!mounted) return;
 
-                  // Update landmark markers
-                  await _layerManager!.updateLandmarkMarkers(
-                    state.landmarks,
-                    state.userSteps,
-                  );
-                  if (!mounted) return;
+                // Handle progress path animation and camera movement
+                if (state.userSteps > 0 && _layerManager != null) {
+                  // First time: Show progress animation first, then move camera
+                  // This lets user see the green line grow on the route overview
+                  if (!_hasShownFirstProgress && _hasShownFullRoute) {
+                    print('🔵 First progress animation - sequential (animation then camera)...');
 
-                  // User marker is already updated during path animation
-                  // No need to update it again here
-                }
+                    // Step 1: Animate progress path while camera stays at route overview
+                    await _animateProgressPath(
+                      state.allWaypoints,
+                      state.reachedWaypoints,
+                      state.currentPosition.latitude,
+                      state.currentPosition.longitude,
+                    );
+                    print('✅ Progress animation complete');
+                    if (!mounted) return;
 
-                // Navigation mode: Follow user's current position with camera
-                // Only activate when user starts interacting (step count > 0)
-                if (_hasShownFullRoute &&
-                    _mapboxMap != null &&
-                    state.allWaypoints.isNotEmpty &&
-                    state.userSteps > 0) {
-                  // Only track when user has steps
-                  await _updateNavigationCamera(
-                    state.allWaypoints,
-                    state.currentPosition.latitude,
-                    state.currentPosition.longitude,
-                    state.currentPosition.waypointIndex,
-                  );
-                  if (!mounted) return;
+                    // Step 2: Move camera to user position
+                    if (_mapboxMap != null && state.allWaypoints.isNotEmpty) {
+                      await _updateNavigationCamera(
+                        state.allWaypoints,
+                        state.currentPosition.latitude,
+                        state.currentPosition.longitude,
+                        state.currentPosition.waypointIndex,
+                      );
+                      print('✅ Camera moved to user position');
+                      if (!mounted) return;
+                    }
+
+                    _hasShownFirstProgress = true;
+                  } else {
+                    // Subsequent times: Run animations in parallel for smooth synchronized experience
+                    print('🔵 Starting synchronized progress animation and camera movement...');
+
+                    // Build list of futures to run in parallel
+                    final futures = <Future<void>>[];
+
+                    // Always animate progress path
+                    futures.add(
+                      _animateProgressPath(
+                        state.allWaypoints,
+                        state.reachedWaypoints,
+                        state.currentPosition.latitude,
+                        state.currentPosition.longitude,
+                      ),
+                    );
+
+                    // Add camera navigation if route has been shown
+                    if (_hasShownFullRoute &&
+                        _mapboxMap != null &&
+                        state.allWaypoints.isNotEmpty) {
+                      futures.add(
+                        _updateNavigationCamera(
+                          state.allWaypoints,
+                          state.currentPosition.latitude,
+                          state.currentPosition.longitude,
+                          state.currentPosition.waypointIndex,
+                        ),
+                      );
+                    }
+
+                    // Run animations in parallel
+                    await Future.wait(futures);
+                    print('✅ Progress animation and camera movement complete');
+                    if (!mounted) return;
+                  }
+                } else if (state.userSteps == 0) {
+                  print('⚠️ Skipping progress animation (user has 0 steps)');
                 }
 
                 // Show landmark info if selected

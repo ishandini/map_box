@@ -1,7 +1,14 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import '../../domain/entities/waypoint.dart';
 import 'path_simplifier.dart';
+
+/// Top-level function for path simplification in isolate
+/// Required by compute() - must be top-level or static
+List<List<double>> _simplifyCoordinatesInIsolate(List<List<double>> coordinates) {
+  return PathSimplifier.adaptiveSimplify(coordinates, 14.0);
+}
 
 /// Manager class for handling Mapbox layers and sources
 class MapLayerManager {
@@ -70,6 +77,72 @@ class MapLayerManager {
       print('⚠️ Layer exists, updating instead: $e');
       // Layer might already exist, update instead
       await updateFullRoutePath(waypoints);
+    }
+  }
+
+  /// Add full route path using pre-simplified coordinates (non-blocking)
+  /// This version uses coordinates that were already simplified in a background isolate
+  Future<void> addFullRoutePathWithCoordinates(List<List<double>> simplifiedCoordinates) async {
+    if (simplifiedCoordinates.length < 2) {
+      print('⚠️ Not enough simplified coordinates to draw');
+      return;
+    }
+
+    print('🗺️ Drawing full route path with ${simplifiedCoordinates.length} simplified coordinates');
+
+    // Create GeoJSON for the route
+    final geoJson = {
+      'type': 'Feature',
+      'geometry': {'type': 'LineString', 'coordinates': simplifiedCoordinates},
+      'properties': {},
+    };
+
+    try {
+      // Add source with GeoJSON string
+      await mapboxMap.style.addSource(
+        GeoJsonSource(id: fullRouteSourceId, data: jsonEncode(geoJson)),
+      );
+      print('✅ Added source: $fullRouteSourceId');
+
+      // Add layer
+      await mapboxMap.style.addLayer(
+        LineLayer(
+          id: fullRouteLayerId,
+          sourceId: fullRouteSourceId,
+          lineColor: 0xFFFFA726, // Bright orange color - very visible!
+          lineWidth: 6.0,
+          lineOpacity: 1.0, // Full opacity for better visibility
+          lineCap: LineCap.ROUND, // Rounded line ends
+          lineJoin: LineJoin.ROUND, // Rounded corners
+        ),
+      );
+      print('✅ Added layer: $fullRouteLayerId (bright orange, 6px width)');
+    } catch (e) {
+      print('⚠️ Layer exists, updating instead: $e');
+      // Layer might already exist, update instead
+      await updateFullRoutePathWithCoordinates(simplifiedCoordinates);
+    }
+  }
+
+  /// Update full route path using pre-simplified coordinates
+  Future<void> updateFullRoutePathWithCoordinates(List<List<double>> simplifiedCoordinates) async {
+    if (simplifiedCoordinates.length < 2) return;
+
+    final geoJson = {
+      'type': 'Feature',
+      'geometry': {'type': 'LineString', 'coordinates': simplifiedCoordinates},
+      'properties': {},
+    };
+
+    try {
+      await mapboxMap.style.setStyleSourceProperty(
+        fullRouteSourceId,
+        'data',
+        jsonEncode(geoJson),
+      );
+    } catch (e) {
+      // Source doesn't exist, add it
+      await addFullRoutePathWithCoordinates(simplifiedCoordinates);
     }
   }
 
@@ -234,20 +307,57 @@ class MapLayerManager {
   }
 
   /// Get simplified coordinates for a list of coordinates
-  /// Used for pre-calculation before animation
+  /// Runs in background isolate to avoid blocking UI thread
+  ///
+  /// DEPRECATED: Path simplification has been removed to ensure perfect alignment
+  /// between the full route (orange) and progress path (green). Using all waypoints
+  /// provides accurate curve representation without visual artifacts.
+  @Deprecated('No longer used - routes now use all waypoints without simplification')
   Future<List<List<double>>> getSimplifiedCoordinates(List<List<num>> coordinates) async {
     // Convert List<List<num>> to List<List<double>>
     final doubleCoordinates = coordinates.map((coord) =>
       coord.map((value) => value.toDouble()).toList()
     ).toList();
 
-    return PathSimplifier.adaptiveSimplify(doubleCoordinates, 14.0);
+    // Run simplification in background isolate to prevent UI freeze
+    // This is critical for large routes (1000+ waypoints)
+    return await compute(_simplifyCoordinatesInIsolate, doubleCoordinates);
+  }
+
+  /// Get simplified coordinates with custom tolerance
+  /// Runs in background isolate to avoid blocking UI thread
+  ///
+  /// DEPRECATED: Path simplification has been removed to ensure perfect alignment
+  /// between the full route (orange) and progress path (green). Using all waypoints
+  /// provides accurate curve representation without visual artifacts.
+  @Deprecated('No longer used - routes now use all waypoints without simplification')
+  Future<List<List<double>>> getSimplifiedCoordinatesWithTolerance(
+    List<List<num>> coordinates,
+    double tolerance,
+  ) async {
+    // Convert List<List<num>> to List<List<double>>
+    final doubleCoordinates = coordinates.map((coord) =>
+      coord.map((value) => value.toDouble()).toList()
+    ).toList();
+
+    // Run simplification in background isolate
+    return await compute(
+      (coords) => PathSimplifier.adaptiveSimplify(coords, tolerance),
+      doubleCoordinates,
+    );
   }
 
   /// Update progress path with pre-calculated simplified coordinates
   /// This version doesn't need to simplify, making it faster for animations
-  void updateProgressPathWithCoordinates(List<List<double>> simplifiedCoordinates) {
-    if (simplifiedCoordinates.length < 2) return;
+  Future<void> updateProgressPathWithCoordinates(List<List<double>> simplifiedCoordinates) async {
+    if (simplifiedCoordinates.length < 2) {
+      print('⚠️ Progress path skipped: only ${simplifiedCoordinates.length} coordinates');
+      return;
+    }
+
+    print('🟢 Updating progress path with ${simplifiedCoordinates.length} coordinates');
+    print('   First coord: ${simplifiedCoordinates.first}');
+    print('   Last coord: ${simplifiedCoordinates.last}');
 
     final geoJson = {
       'type': 'Feature',
@@ -256,27 +366,41 @@ class MapLayerManager {
     };
 
     try {
-      mapboxMap.style.setStyleSourceProperty(
-        progressRouteSourceId,
-        'data',
-        jsonEncode(geoJson),
-      );
-    } catch (e) {
-      // Source doesn't exist, add it first
-      mapboxMap.style.addSource(
+      // Try to add source (will fail if already exists)
+      print('🔍 Trying to add progress source...');
+      await mapboxMap.style.addSource(
         GeoJsonSource(id: progressRouteSourceId, data: jsonEncode(geoJson)),
       );
-      mapboxMap.style.addLayer(
+      print('✅ Progress source added');
+
+      // Add layer - position it above the full route but below landmarks
+      await mapboxMap.style.addLayerAt(
         LineLayer(
           id: progressRouteLayerId,
           sourceId: progressRouteSourceId,
-          lineColor: 0xFF19b30b,
+          lineColor: 0xFF19b30b, // Green color
           lineWidth: 7.0,
           lineOpacity: 1.0,
           lineCap: LineCap.ROUND,
           lineJoin: LineJoin.ROUND,
         ),
+        LayerPosition(above: fullRouteLayerId), // Always above the full route
       );
+      print('✅ Progress layer added (green, 7px width) above full route layer');
+    } catch (e) {
+      // Source already exists, update it instead
+      print('⚠️ Progress source exists, updating instead...');
+      print('   Exception: $e');
+      try {
+        mapboxMap.style.setStyleSourceProperty(
+          progressRouteSourceId,
+          'data',
+          jsonEncode(geoJson),
+        );
+        print('✅ Progress path updated successfully');
+      } catch (updateError) {
+        print('❌ Failed to update progress source: $updateError');
+      }
     }
   }
 

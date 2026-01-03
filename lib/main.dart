@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:map_box/core/services/step_counter_service.dart';
 import 'animated_map_view.dart';
 import 'core/di/injection_container.dart' as di;
 import 'core/di/injection_container.dart';
@@ -10,7 +11,7 @@ void main() async {
 
   await di.init();
 
-  // StepCounterService.setUserStepCount(1500); // Example: 1500 steps
+  StepCounterService.setUserStepCount(80000); // Example: 1500 steps
 
   runApp(const MyApp());
 }
