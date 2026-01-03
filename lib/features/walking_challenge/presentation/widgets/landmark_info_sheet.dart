@@ -1,8 +1,8 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../domain/entities/waypoint.dart';
 
-/// Bottom sheet widget for displaying landmark information
 class LandmarkInfoSheet extends StatelessWidget {
   final Waypoint landmark;
   final bool hasReached;
@@ -17,7 +17,7 @@ class LandmarkInfoSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
@@ -31,7 +31,7 @@ class LandmarkInfoSheet extends StatelessWidget {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey[300],
+                color: AppColors.lightGrey,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -71,9 +71,9 @@ class LandmarkInfoSheet extends StatelessWidget {
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Text(
                       landmark.welcomeMessage,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 14,
-                        color: Colors.grey[600],
+                        color: AppColors.mediumGrey,
                         fontStyle: FontStyle.italic,
                       ),
                     ),
@@ -101,8 +101,8 @@ class LandmarkInfoSheet extends StatelessWidget {
                     onPressed: () => Navigator.pop(context),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: hasReached
-                          ? const Color(0xFF19b30b)
-                          : const Color(0xFFFF9800), // Bright orange for locked
+                          ? AppColors.progressGreen
+                          : AppColors.statusLockedButton,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -113,7 +113,7 @@ class LandmarkInfoSheet extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: Colors.black, // Black text on bright background
+                        color: AppColors.black,
                       ),
                     ),
                   ),
@@ -136,15 +136,17 @@ class LandmarkInfoSheet extends StatelessWidget {
         fit: BoxFit.cover,
         placeholder: (context, url) => Container(
           height: 200,
-          color: const Color(0xFFFFF3E0), // Light orange background
+          color: AppColors.lightOrangeBackground,
           child: const Center(
-            child: CircularProgressIndicator(color: Color(0xFFFF9800)),
+            child: CircularProgressIndicator(
+              color: AppColors.statusLockedButton,
+            ),
           ),
         ),
         errorWidget: (context, url, error) => Container(
           height: 200,
-          color: const Color(0xFFFFF3E0), // Light orange background
-          child: const Icon(Icons.error, color: Color(0xFFFF5722)),
+          color: AppColors.lightOrangeBackground,
+          child: const Icon(Icons.error, color: AppColors.errorBackground),
         ),
       ),
     );
@@ -155,8 +157,8 @@ class LandmarkInfoSheet extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: hasReached
-            ? const Color(0xFFFFF9C4) // Light yellow for reached
-            : const Color(0xFFFFE0B2), // Light orange for locked
+            ? AppColors.statusReachedBackground
+            : AppColors.statusLockedBackground,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -166,8 +168,8 @@ class LandmarkInfoSheet extends StatelessWidget {
             hasReached ? Icons.check_circle : Icons.lock,
             size: 16,
             color: hasReached
-                ? const Color(0xFFF57F17) // Dark yellow for reached
-                : const Color(0xFFE65100), // Dark orange for locked
+                ? AppColors.statusReachedIcon
+                : AppColors.statusLockedIcon,
           ),
           const SizedBox(width: 4),
           Text(
@@ -176,8 +178,8 @@ class LandmarkInfoSheet extends StatelessWidget {
               fontSize: 12,
               fontWeight: FontWeight.w600,
               color: hasReached
-                  ? const Color(0xFFF57F17) // Dark yellow for reached
-                  : const Color(0xFFE65100), // Dark orange for locked
+                  ? AppColors.statusReachedIcon
+                  : AppColors.statusLockedIcon,
             ),
           ),
         ],
@@ -189,7 +191,7 @@ class LandmarkInfoSheet extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF3E0), // Light orange background
+        color: AppColors.lightOrangeBackground,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -205,7 +207,7 @@ class LandmarkInfoSheet extends StatelessWidget {
             Container(
               width: 1,
               height: 40,
-              color: const Color(0xFFFF9800), // Orange divider
+              color: AppColors.statusLockedButton,
             ),
             Expanded(
               child: _buildStepsStat(
@@ -226,18 +228,14 @@ class LandmarkInfoSheet extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              size: 16,
-              color: const Color(0xFFE65100),
-            ), // Dark orange icon
+            Icon(icon, size: 16, color: AppColors.statusLockedIcon),
             const SizedBox(width: 4),
             Text(
               value,
               style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFFE65100), // Dark orange numbers
+                color: AppColors.statusLockedIcon,
               ),
             ),
           ],
@@ -247,7 +245,7 @@ class LandmarkInfoSheet extends StatelessWidget {
           label,
           style: const TextStyle(
             fontSize: 12,
-            color: Color(0xFFE65100), // Dark orange label
+            color: AppColors.statusLockedIcon,
           ),
         ),
       ],

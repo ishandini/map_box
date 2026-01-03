@@ -12,11 +12,19 @@ PODS:
     - MapboxCommon (= 24.17.0)
     - MapboxCoreMaps (= 11.17.0)
     - Turf (= 4.0.0)
+  - path_provider_foundation (0.0.1):
+    - Flutter
+    - FlutterMacOS
+  - sqflite_darwin (0.0.4):
+    - Flutter
+    - FlutterMacOS
   - Turf (4.0.0)
 
 DEPENDENCIES:
   - Flutter (from `Flutter`)
   - mapbox_maps_flutter (from `.symlinks/plugins/mapbox_maps_flutter/ios`)
+  - path_provider_foundation (from `.symlinks/plugins/path_provider_foundation/darwin`)
+  - sqflite_darwin (from `.symlinks/plugins/sqflite_darwin/darwin`)
 
 SPEC REPOS:
   trunk:
@@ -30,6 +38,10 @@ EXTERNAL SOURCES:
     :path: Flutter
   mapbox_maps_flutter:
     :path: ".symlinks/plugins/mapbox_maps_flutter/ios"
+  path_provider_foundation:
+    :path: ".symlinks/plugins/path_provider_foundation/darwin"
+  sqflite_darwin:
+    :path: ".symlinks/plugins/sqflite_darwin/darwin"
 
 SPEC CHECKSUMS:
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
@@ -37,6 +49,8 @@ SPEC CHECKSUMS:
   MapboxCommon: 5cc0e77733478a7b2a3a28af7c38adc8485e07d8
   MapboxCoreMaps: b7b7703cd8af3ae9088f42c6d23b591947a1eb1f
   MapboxMaps: 10b01217e5634aa7b6fc1fb10d036598d9240ba6
+  path_provider_foundation: bb55f6dbba17d0dccd6737fe6f7f34fbd0376880
+  sqflite_darwin: 20b2a3a3b70e43edae938624ce550a3cbf66a3d0
   Turf: c9eb11a65d96af58cac523460fd40fec5061b081
 
 PODFILE CHECKSUM: 3c63482e143d1b91d2d2560aee9fb04ecc74ac7e

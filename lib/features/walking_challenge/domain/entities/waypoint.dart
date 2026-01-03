@@ -1,8 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 
-/// Domain entity representing a waypoint in the walking route
-/// This is the core business object that is independent of data sources
 class Waypoint extends Equatable {
   final double latitude;
   final double longitude;
@@ -40,38 +38,31 @@ class Waypoint extends Equatable {
     required this.currentCity,
   });
 
-  /// Check if this waypoint is a landmark (has city information)
-  /// Shows all waypoints that have a city name (not just native_post)
   bool get isLandmark => city != '-' && city.isNotEmpty;
 
-  /// Check if user has reached this waypoint
   bool hasReached(int userSteps) => userSteps >= cumulativeSteps;
 
-  /// Convert to Mapbox Point
-  Point toPoint() => Point(
-        coordinates: Position(longitude, latitude),
-      );
+  Point toPoint() => Point(coordinates: Position(longitude, latitude));
 
-  /// Get position as [longitude, latitude] array for GeoJSON
   List<double> toCoordinates() => [longitude, latitude];
 
   @override
   List<Object?> get props => [
-        latitude,
-        longitude,
-        distance,
-        cumulativeSteps,
-        zoomLevel,
-        action,
-        link,
-        flagActive,
-        flagDeactive,
-        stepsToNext,
-        nextCity,
-        city,
-        cityMessage,
-        cityImage,
-        welcomeMessage,
-        currentCity,
-      ];
+    latitude,
+    longitude,
+    distance,
+    cumulativeSteps,
+    zoomLevel,
+    action,
+    link,
+    flagActive,
+    flagDeactive,
+    stepsToNext,
+    nextCity,
+    city,
+    cityMessage,
+    cityImage,
+    welcomeMessage,
+    currentCity,
+  ];
 }

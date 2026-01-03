@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 import '../../domain/entities/waypoint.dart';
 
-/// Utility class for calculating geographic bearing between points
 class BearingCalculator {
   /// Calculate bearing from point A to point B in degrees (0-360)
   /// 0° = North, 90° = East, 180° = South, 270° = West
@@ -18,7 +17,8 @@ class BearingCalculator {
 
     // Calculate bearing using formula
     final y = math.sin(dLon) * math.cos(lat2Rad);
-    final x = math.cos(lat1Rad) * math.sin(lat2Rad) -
+    final x =
+        math.cos(lat1Rad) * math.sin(lat2Rad) -
         math.sin(lat1Rad) * math.cos(lat2Rad) * math.cos(dLon);
 
     final bearingRad = math.atan2(y, x);
@@ -61,12 +61,10 @@ class BearingCalculator {
     );
   }
 
-  /// Convert degrees to radians
   static double _degreesToRadians(double degrees) {
     return degrees * math.pi / 180.0;
   }
 
-  /// Convert radians to degrees
   static double _radiansToDegrees(double radians) {
     return radians * 180.0 / math.pi;
   }

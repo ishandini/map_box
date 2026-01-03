@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'animated_map_view.dart';
+import 'package:map_box/core/services/step_counter_service.dart';
+import 'package:map_box/core/theme/app_colors.dart';
+import 'features/walking_challenge/presentation/widgets/animated_map_view.dart';
 import 'core/di/injection_container.dart' as di;
 import 'core/di/injection_container.dart';
 import 'features/walking_challenge/presentation/bloc/route_bloc.dart';
@@ -10,7 +12,7 @@ void main() async {
 
   await di.init();
 
-  // StepCounterService.setUserStepCount(1500); // Example: 1500 steps
+  StepCounterService.setUserStepCount(80000); // Example: 1500 steps
 
   runApp(const MyApp());
 }
@@ -23,7 +25,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Flutter Demo',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
+        colorScheme: ColorScheme.fromSeed(seedColor: AppColors.themePrimary),
       ),
       home: const MyHomePage(title: 'Flutter Demo Home Page'),
     );

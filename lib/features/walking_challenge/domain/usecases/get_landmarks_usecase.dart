@@ -4,8 +4,8 @@ import '../../../../core/usecase/usecase.dart';
 import '../entities/waypoint.dart';
 import '../repositories/route_repository.dart';
 
-/// Use case for getting all landmarks from the route
-class GetLandmarksUseCase implements SyncUseCase<List<Waypoint>, LandmarkParams> {
+class GetLandmarksUseCase
+    implements SyncUseCase<List<Waypoint>, LandmarkParams> {
   final RouteRepository repository;
 
   GetLandmarksUseCase(this.repository);
@@ -16,7 +16,6 @@ class GetLandmarksUseCase implements SyncUseCase<List<Waypoint>, LandmarkParams>
   }
 }
 
-/// Parameters for getting landmarks
 class LandmarkParams {
   final List<Waypoint> waypoints;
 

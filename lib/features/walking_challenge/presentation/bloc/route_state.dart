@@ -2,7 +2,6 @@ import 'package:equatable/equatable.dart';
 import '../../domain/entities/waypoint.dart';
 import '../../domain/repositories/route_repository.dart';
 
-/// Base class for all route states
 abstract class RouteState extends Equatable {
   const RouteState();
 
@@ -10,17 +9,14 @@ abstract class RouteState extends Equatable {
   List<Object?> get props => [];
 }
 
-/// Initial state before loading
 class RouteInitial extends RouteState {
   const RouteInitial();
 }
 
-/// State when route is being loaded
 class RouteLoading extends RouteState {
   const RouteLoading();
 }
 
-/// State when route is loaded successfully
 class RouteLoaded extends RouteState {
   final List<Waypoint> allWaypoints;
   final List<Waypoint> reachedWaypoints;
@@ -28,8 +24,8 @@ class RouteLoaded extends RouteState {
   final WaypointPosition currentPosition;
   final int userSteps;
   final Waypoint? selectedLandmark;
-  final Waypoint? lastReachedLandmark; // Track for auto-zoom
-  final bool shouldAutoZoom; // Flag to trigger zoom animation
+  final Waypoint? lastReachedLandmark;
+  final bool shouldAutoZoom;
 
   const RouteLoaded({
     required this.allWaypoints,
@@ -42,7 +38,6 @@ class RouteLoaded extends RouteState {
     this.shouldAutoZoom = false,
   });
 
-  /// Create a copy with updated fields
   RouteLoaded copyWith({
     List<Waypoint>? allWaypoints,
     List<Waypoint>? reachedWaypoints,
@@ -60,7 +55,9 @@ class RouteLoaded extends RouteState {
       landmarks: landmarks ?? this.landmarks,
       currentPosition: currentPosition ?? this.currentPosition,
       userSteps: userSteps ?? this.userSteps,
-      selectedLandmark: clearSelectedLandmark ? null : (selectedLandmark ?? this.selectedLandmark),
+      selectedLandmark: clearSelectedLandmark
+          ? null
+          : (selectedLandmark ?? this.selectedLandmark),
       lastReachedLandmark: lastReachedLandmark ?? this.lastReachedLandmark,
       shouldAutoZoom: shouldAutoZoom ?? false,
     );
@@ -68,18 +65,17 @@ class RouteLoaded extends RouteState {
 
   @override
   List<Object?> get props => [
-        allWaypoints,
-        reachedWaypoints,
-        landmarks,
-        currentPosition,
-        userSteps,
-        selectedLandmark,
-        lastReachedLandmark,
-        shouldAutoZoom,
-      ];
+    allWaypoints,
+    reachedWaypoints,
+    landmarks,
+    currentPosition,
+    userSteps,
+    selectedLandmark,
+    lastReachedLandmark,
+    shouldAutoZoom,
+  ];
 }
 
-/// State when route loading fails
 class RouteError extends RouteState {
   final String message;
 

@@ -4,7 +4,6 @@ import '../../domain/entities/waypoint.dart';
 import '../../domain/repositories/route_repository.dart';
 import '../datasources/route_local_datasource.dart';
 
-/// Implementation of RouteRepository
 class RouteRepositoryImpl implements RouteRepository {
   final RouteLocalDataSource localDataSource;
 
@@ -13,7 +12,10 @@ class RouteRepositoryImpl implements RouteRepository {
   @override
   Future<Either<Failure, List<Waypoint>>> getRouteWaypoints() async {
     try {
-      final waypoints = await localDataSource.loadRouteWaypoints();
+      final waypointModels = await localDataSource.loadRouteWaypoints();
+      final waypoints = waypointModels
+          .map((model) => model.toEntity())
+          .toList();
       return Right(waypoints);
     } on DataSourceException catch (e) {
       return Left(DataSourceFailure(e.message));
@@ -60,7 +62,9 @@ class RouteRepositoryImpl implements RouteRepository {
     try {
       if (waypoints.isEmpty) {
         return const Left(
-          CalculationFailure('Cannot calculate position: waypoints list is empty'),
+          CalculationFailure(
+            'Cannot calculate position: waypoints list is empty',
+          ),
         );
       }
 
@@ -140,7 +144,6 @@ class RouteRepositoryImpl implements RouteRepository {
     }
   }
 
-  /// Linear interpolation between two values
   double _interpolate(double start, double end, double progress) {
     return start + (end - start) * progress;
   }

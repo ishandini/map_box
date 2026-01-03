@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../domain/entities/waypoint.dart';
 import 'path_simplifier.dart';
 
-/// Manager class for handling Mapbox layers and sources
 class MapLayerManager {
   static const String fullRouteSourceId = 'full-route-source';
   static const String fullRouteLayerId = 'full-route-layer';
@@ -22,22 +22,17 @@ class MapLayerManager {
   /// Add full route path layer (light blue path)
   Future<void> addFullRoutePath(List<Waypoint> waypoints) async {
     if (waypoints.isEmpty) {
-      print('⚠️ No waypoints to draw');
       return;
     }
 
-    print('🗺️ Drawing full route path with ${waypoints.length} waypoints');
-
     // Convert waypoints to coordinates
     final coordinates = waypoints.map((w) => w.toCoordinates()).toList();
-    print('📍 Converted to ${coordinates.length} coordinates');
 
     // Simplify path for performance
     final simplifiedCoordinates = PathSimplifier.adaptiveSimplify(
       coordinates,
       14.0,
     );
-    print('✂️ Simplified to ${simplifiedCoordinates.length} coordinates');
 
     // Create GeoJSON for the route
     final geoJson = {
@@ -51,25 +46,86 @@ class MapLayerManager {
       await mapboxMap.style.addSource(
         GeoJsonSource(id: fullRouteSourceId, data: jsonEncode(geoJson)),
       );
-      print('✅ Added source: $fullRouteSourceId');
 
       // Add layer
       await mapboxMap.style.addLayer(
         LineLayer(
           id: fullRouteLayerId,
           sourceId: fullRouteSourceId,
-          lineColor: 0xFFFFA726, // Bright orange color - very visible!
+          lineColor: AppColors.routeOrangeInt,
           lineWidth: 6.0,
-          lineOpacity: 1.0, // Full opacity for better visibility
-          lineCap: LineCap.ROUND, // Rounded line ends
-          lineJoin: LineJoin.ROUND, // Rounded corners
+          lineOpacity: 1.0,
+          lineCap: LineCap.ROUND,
+          lineJoin: LineJoin.ROUND,
         ),
       );
-      print('✅ Added layer: $fullRouteLayerId (bright orange, 6px width)');
     } catch (e) {
-      print('⚠️ Layer exists, updating instead: $e');
       // Layer might already exist, update instead
       await updateFullRoutePath(waypoints);
+    }
+  }
+
+  /// Add full route path using pre-simplified coordinates (non-blocking)
+  /// This version uses coordinates that were already simplified in a background isolate
+  Future<void> addFullRoutePathWithCoordinates(
+    List<List<double>> simplifiedCoordinates,
+  ) async {
+    if (simplifiedCoordinates.length < 2) {
+      return;
+    }
+
+    // Create GeoJSON for the route
+    final geoJson = {
+      'type': 'Feature',
+      'geometry': {'type': 'LineString', 'coordinates': simplifiedCoordinates},
+      'properties': {},
+    };
+
+    try {
+      // Add source with GeoJSON string
+      await mapboxMap.style.addSource(
+        GeoJsonSource(id: fullRouteSourceId, data: jsonEncode(geoJson)),
+      );
+
+      // Add layer
+      await mapboxMap.style.addLayer(
+        LineLayer(
+          id: fullRouteLayerId,
+          sourceId: fullRouteSourceId,
+          lineColor: AppColors.routeOrangeInt,
+          lineWidth: 6.0,
+          lineOpacity: 1.0,
+          lineCap: LineCap.ROUND,
+          lineJoin: LineJoin.ROUND,
+        ),
+      );
+    } catch (e) {
+      // Layer might already exist, update instead
+      await updateFullRoutePathWithCoordinates(simplifiedCoordinates);
+    }
+  }
+
+  /// Update full route path using pre-simplified coordinates
+  Future<void> updateFullRoutePathWithCoordinates(
+    List<List<double>> simplifiedCoordinates,
+  ) async {
+    if (simplifiedCoordinates.length < 2) return;
+
+    final geoJson = {
+      'type': 'Feature',
+      'geometry': {'type': 'LineString', 'coordinates': simplifiedCoordinates},
+      'properties': {},
+    };
+
+    try {
+      await mapboxMap.style.setStyleSourceProperty(
+        fullRouteSourceId,
+        'data',
+        jsonEncode(geoJson),
+      );
+    } catch (e) {
+      // Source doesn't exist, add it
+      await addFullRoutePathWithCoordinates(simplifiedCoordinates);
     }
   }
 
@@ -126,15 +182,12 @@ class MapLayerManager {
         LineLayer(
           id: progressRouteLayerId,
           sourceId: progressRouteSourceId,
-          lineColor: 0xFF19b30b,
-          lineWidth: 7.0, // Thicker for better visibility
+          lineColor: AppColors.progressGreenInt,
+          lineWidth: 7.0,
           lineOpacity: 1.0,
-          lineCap: LineCap.ROUND, // Rounded line ends
-          lineJoin: LineJoin.ROUND, // Rounded corners
+          lineCap: LineCap.ROUND,
+          lineJoin: LineJoin.ROUND,
         ),
-      );
-      print(
-        '✅ Added progress layer: $progressRouteLayerId (bright yellow, 7px width)',
       );
     } catch (e) {
       // Layer might already exist, update instead
@@ -176,8 +229,10 @@ class MapLayerManager {
     for (int i = 0; i < allSimplified.length; i++) {
       final simplified = allSimplified[i];
       final distance = _calculateDistance(
-        simplified[1], simplified[0],
-        lastReachedCoord[1], lastReachedCoord[0],
+        simplified[1],
+        simplified[0],
+        lastReachedCoord[1],
+        lastReachedCoord[0],
       );
       if (distance < minDistance) {
         minDistance = distance;
@@ -186,7 +241,10 @@ class MapLayerManager {
     }
 
     // Take subset of simplified coordinates (at least 2 points for a line)
-    final progressSimplified = allSimplified.sublist(0, (closestIndex + 1).clamp(2, allSimplified.length));
+    final progressSimplified = allSimplified.sublist(
+      0,
+      (closestIndex + 1).clamp(2, allSimplified.length),
+    );
 
     final geoJson = {
       'type': 'Feature',
@@ -209,7 +267,7 @@ class MapLayerManager {
         LineLayer(
           id: progressRouteLayerId,
           sourceId: progressRouteSourceId,
-          lineColor: 0xFF19b30b,
+          lineColor: AppColors.progressGreenInt,
           lineWidth: 7.0,
           lineOpacity: 1.0,
           lineCap: LineCap.ROUND,
@@ -220,10 +278,7 @@ class MapLayerManager {
 
     // Return the last coordinate of the simplified path for marker positioning
     final lastCoord = progressSimplified.last;
-    return {
-      'latitude': lastCoord[1] as double,
-      'longitude': lastCoord[0] as double,
-    };
+    return {'latitude': lastCoord[1], 'longitude': lastCoord[0]};
   }
 
   /// Calculate simple distance between two lat/lng points (Euclidean approximation)
@@ -233,21 +288,14 @@ class MapLayerManager {
     return dLat * dLat + dLon * dLon; // No need for sqrt for comparison
   }
 
-  /// Get simplified coordinates for a list of coordinates
-  /// Used for pre-calculation before animation
-  Future<List<List<double>>> getSimplifiedCoordinates(List<List<num>> coordinates) async {
-    // Convert List<List<num>> to List<List<double>>
-    final doubleCoordinates = coordinates.map((coord) =>
-      coord.map((value) => value.toDouble()).toList()
-    ).toList();
-
-    return PathSimplifier.adaptiveSimplify(doubleCoordinates, 14.0);
-  }
-
   /// Update progress path with pre-calculated simplified coordinates
   /// This version doesn't need to simplify, making it faster for animations
-  void updateProgressPathWithCoordinates(List<List<double>> simplifiedCoordinates) {
-    if (simplifiedCoordinates.length < 2) return;
+  Future<void> updateProgressPathWithCoordinates(
+    List<List<double>> simplifiedCoordinates,
+  ) async {
+    if (simplifiedCoordinates.length < 2) {
+      return;
+    }
 
     final geoJson = {
       'type': 'Feature',
@@ -256,27 +304,35 @@ class MapLayerManager {
     };
 
     try {
-      mapboxMap.style.setStyleSourceProperty(
-        progressRouteSourceId,
-        'data',
-        jsonEncode(geoJson),
-      );
-    } catch (e) {
-      // Source doesn't exist, add it first
-      mapboxMap.style.addSource(
+      // Try to add source (will fail if already exists)
+      await mapboxMap.style.addSource(
         GeoJsonSource(id: progressRouteSourceId, data: jsonEncode(geoJson)),
       );
-      mapboxMap.style.addLayer(
+
+      // Add layer - position it above the full route but below landmarks
+      await mapboxMap.style.addLayerAt(
         LineLayer(
           id: progressRouteLayerId,
           sourceId: progressRouteSourceId,
-          lineColor: 0xFF19b30b,
+          lineColor: AppColors.progressGreenInt,
           lineWidth: 7.0,
           lineOpacity: 1.0,
           lineCap: LineCap.ROUND,
           lineJoin: LineJoin.ROUND,
         ),
+        LayerPosition(above: fullRouteLayerId),
       );
+    } catch (e) {
+      // Source already exists, update it instead
+      try {
+        mapboxMap.style.setStyleSourceProperty(
+          progressRouteSourceId,
+          'data',
+          jsonEncode(geoJson),
+        );
+      } catch (updateError) {
+        // Failed to update
+      }
     }
   }
 
@@ -352,14 +408,11 @@ class MapLayerManager {
         CircleLayer(
           id: landmarksLayerId,
           sourceId: landmarksSourceId,
-          circleRadius: 10.0, // Larger for better visibility
-          circleColor: 0xFFFF5722, // Bright red-orange - very visible!
-          circleStrokeColor: 0xFFFFFFFF, // White stroke
-          circleStrokeWidth: 3.0, // Thicker stroke
+          circleRadius: 10.0,
+          circleColor: AppColors.landmarkMarkerInt,
+          circleStrokeColor: AppColors.whiteInt,
+          circleStrokeWidth: 3.0,
         ),
-      );
-      print(
-        '✅ Added landmarks layer: $landmarksLayerId (bright red-orange, 10px radius)',
       );
     } catch (e) {
       // Layer might already exist, update instead
@@ -413,9 +466,7 @@ class MapLayerManager {
         'type': 'Point',
         'coordinates': [longitude, latitude],
       },
-      'properties': {
-        'title': 'You',
-      },
+      'properties': {'title': 'You'},
     };
 
     try {
@@ -439,9 +490,7 @@ class MapLayerManager {
         'type': 'Point',
         'coordinates': [longitude, latitude],
       },
-      'properties': {
-        'title': 'You',
-      },
+      'properties': {'title': 'You'},
     };
 
     try {
@@ -456,8 +505,8 @@ class MapLayerManager {
           id: userMarkerLayerId,
           sourceId: userMarkerSourceId,
           circleRadius: 12.0,
-          circleColor: 0xFF2196F3, // Blue color for user
-          circleStrokeColor: 0xFFFFFFFF, // White border
+          circleColor: AppColors.userMarkerInt,
+          circleStrokeColor: AppColors.whiteInt,
           circleStrokeWidth: 3.0,
         ),
       );
@@ -469,17 +518,15 @@ class MapLayerManager {
           sourceId: userMarkerSourceId,
           textField: 'You',
           textSize: 12.0,
-          textColor: 0xFFFFFFFF, // White text
-          textHaloColor: 0xFF000000, // Black halo for readability
+          textColor: AppColors.whiteInt,
+          textHaloColor: AppColors.blackInt,
           textHaloWidth: 1.5,
-          textOffset: [0.0, -2.0], // Offset text above the marker
+          textOffset: [0.0, -2.0],
           textAnchor: TextAnchor.BOTTOM,
         ),
       );
-
-      print('✅ Added user marker at ($latitude, $longitude)');
     } catch (e) {
-      print('⚠️ Error adding user marker: $e');
+      // Error adding user marker
     }
   }
 

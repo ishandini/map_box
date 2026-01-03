@@ -41,7 +41,6 @@ class RouteBloc extends Bloc<RouteEvent, RouteState> {
           return;
         }
 
-        // Get landmarks
         final landmarksResult = getLandmarksUseCase(
           LandmarkParams(waypoints: waypoints),
         );
@@ -51,7 +50,6 @@ class RouteBloc extends Bloc<RouteEvent, RouteState> {
             emit(RouteError(failure.message));
           },
           (landmarks) async {
-            // Initial state with 0 steps
             final progressResult = calculateProgressUseCase(
               ProgressParams(waypoints: waypoints, userSteps: 0),
             );
@@ -78,7 +76,6 @@ class RouteBloc extends Bloc<RouteEvent, RouteState> {
     );
   }
 
-  /// Handle user step count update
   void _onUpdateUserSteps(
     UpdateUserStepsEvent event,
     Emitter<RouteState> emit,
@@ -87,7 +84,6 @@ class RouteBloc extends Bloc<RouteEvent, RouteState> {
 
     final currentState = state as RouteLoaded;
 
-    // Recalculate progress with new step count
     final progressResult = calculateProgressUseCase(
       ProgressParams(
         waypoints: currentState.allWaypoints,
@@ -100,7 +96,6 @@ class RouteBloc extends Bloc<RouteEvent, RouteState> {
         emit(RouteError(failure.message));
       },
       (progressData) {
-        // Check if user reached a new landmark
         final reachedLandmarks = currentState.landmarks
             .where((landmark) => landmark.hasReached(event.stepCount))
             .toList();
@@ -111,16 +106,11 @@ class RouteBloc extends Bloc<RouteEvent, RouteState> {
         if (reachedLandmarks.isNotEmpty) {
           final latestReachedLandmark = reachedLandmarks.last;
 
-          // Check if this is a NEW landmark (different from last one)
           if (currentState.lastReachedLandmark == null ||
               latestReachedLandmark.cumulativeSteps !=
                   currentState.lastReachedLandmark!.cumulativeSteps) {
             newLandmark = latestReachedLandmark;
             shouldZoom = true;
-            print(
-              '🎯 New landmark reached: ${newLandmark.city} at ${newLandmark.cumulativeSteps} steps',
-            );
-            print('📸 Auto-zooming to zoom level: ${newLandmark.zoomLevel}');
           }
         }
 
@@ -138,7 +128,6 @@ class RouteBloc extends Bloc<RouteEvent, RouteState> {
     );
   }
 
-  /// Handle landmark tap
   void _onLandmarkTapped(LandmarkTappedEvent event, Emitter<RouteState> emit) {
     if (state is! RouteLoaded) return;
 
@@ -151,7 +140,6 @@ class RouteBloc extends Bloc<RouteEvent, RouteState> {
     }
   }
 
-  /// Handle dismissing landmark info
   void _onDismissLandmarkInfo(
     DismissLandmarkInfoEvent event,
     Emitter<RouteState> emit,

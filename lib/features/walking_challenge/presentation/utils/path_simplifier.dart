@@ -1,7 +1,5 @@
 import 'dart:math' as math;
 
-/// Utility class for simplifying paths using Douglas-Peucker algorithm
-/// This helps optimize performance when rendering routes with thousands of waypoints
 class PathSimplifier {
   /// Simplify a path using Douglas-Peucker algorithm
   /// [points] - List of coordinates as [longitude, latitude]
